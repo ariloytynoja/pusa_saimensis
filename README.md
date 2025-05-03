@@ -79,6 +79,43 @@ and `p1.txt` was
 
 The [resulting tree](figures/Fig_S1_full.pdf) was plotted using the 'ggtree' R package.
 
+## Phylogenetic analyses of nuclear DNA
+
+For the phylogenetic analyses of nuclear DNA, the VCF data were split into 500 kbp segments and converted to FASTA format. A maximum likelihood phylogeny for each segment was then inferred with RAxML. 
+
+    w=500000
+    o=500000
+    
+    tail -n+2 sscaffold.txt | while read c e; do
+        i=$o
+        while [ $(( $i + $w )) -lt $e ]; do
+            j=$(( $i + $w ));
+    
+            l=$(bcftools view -e "GT='mis'" -H -r "$c:$i-$j" $vcf | wc -l)
+    
+            if [ $l -gt 1000 ]; then
+                out=fasta/$c:$i.$j
+                name=$c:$i.$j
+    
+                bcftools view -e "GT='mis'" -r "$c:$i-$j" $vcf | vcf-to-tab > temp.tab
+                perl vcf_tab_to_fasta_alignmentv1.pl -i temp.tab -o $out.fas
+                rm temp.tab
+                l=$(head -2 $out.fas | tail -1 | tr -d '\n' | wc -c)
+    
+                pl=$(tabix $mask $c:$i-$j | awk '{s+=$3-$2}END{print s}')
+                pl=$(( $pl - $l ))
+                echo $pl > $out.txt
+                echo "[asc~$out.txt], ASC_DNA, p1=1-$l" > $out.part
+    
+                raxmlHPC -s $out.fas -m ASC_GTRGAMMA -p 123 -n $name -w $output \
+                    --asc-corr=felsenstein -q $out.part -T 10
+    
+            fi
+            i=$(( $i + $w + $o ));
+        done
+    done
+
+The resulting trees were visualised with the `densiTree` function from the `phangorn` R package.
 
 ## Variant selection for genomic analyses
 
